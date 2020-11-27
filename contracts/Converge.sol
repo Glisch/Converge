@@ -6,19 +6,11 @@ contract Converge {
 
     address private owner;
 
-    mapping (string => Group) private groups;
     string[] private groupList;
-
-    uint private meetingCount;
+    mapping (string => Group) private groups;
+    uint public meetingCount;
+    uint[] private meetingList;
     mapping (uint => Meeting) private meetings;
-
-    struct Group {
-        string name;
-        string description;
-        string location;
-        uint listIndex;
-        bool isValid;
-    }
 
     struct Meeting {
         uint id;
@@ -26,13 +18,27 @@ contract Converge {
         string description;
         string location;
         uint date;
+        string groupKey;
+        uint meetingListPointer;
+        bool isValid;
+    }
+
+    struct Group {
+        string name;
+        string description;
+        string location;
+        uint[] meetingKeys;
+        mapping (uint => uint) meetingKeyPointers;
+        uint groupListPointer;
+        bool isValid;
     }
 
     event LogNewGroup(address actor, string name);
     event LogUpdateGroup(address actor, string name);
     event LogDeleteGroup(address actor, string name);
-    event LogNewMeeting(address actor, uint id, string title);
-    event LogUpdateMeeting(address actor, uint id, string title);
+    event LogNewMeeting(address actor, string group, uint id);
+    event LogUpdateMeeting(address actor, string group, uint id);
+    event LogDeleteMeeting(address actor, string group, uint id);
 
     modifier onlyOwner {
         require(msg.sender == owner, "Unauthorized");
@@ -43,73 +49,161 @@ contract Converge {
         owner = msg.sender;
     }
 
-    function addGroup(string memory _name, string memory _description, string memory _location) public onlyOwner {
-        require(!groups[_name].isValid, "Group exists");
-        emit LogNewGroup(msg.sender, _name);
-        groups[_name] = Group({name: _name, description: _description, location: _location, listIndex: groupList.length, isValid: true});
-        groupList.push(_name);
+    function getGroupMeetingCount(string memory _groupName) public view returns(uint) {
+        require(groups[_groupName].isValid, "Invalid group");
+        return groups[_groupName].meetingKeys.length;
     }
 
-    function getGroup(string memory _name) external view returns(string memory, string memory, string memory) {
-        require(groups[_name].isValid, "Invalid group");
-        return (groups[_name].name, groups[_name].description, groups[_name].location);
+    function getGroupMeetingAtIndex(string memory _groupName, uint index) 
+        public 
+        view 
+        returns(uint) 
+    {
+        require(groups[_groupName].isValid, "Invalid group");
+        return groups[_groupName].meetingKeys[index];
     }
 
-    function updateGroup(string memory _name, string memory _description, string memory _location) public onlyOwner {
-        require(groups[_name].isValid, "Invalid group");
-        emit LogUpdateGroup(msg.sender, _name);
-        Group storage group = groups[_name];
+    function addGroup(string memory _groupName, string memory _description, string memory _location) 
+        public 
+        onlyOwner 
+    {
+        require(!groups[_groupName].isValid, "Group exists");
+        emit LogNewGroup(msg.sender, _groupName);
+        Group storage group = groups[_groupName];
+        group.name = _groupName;
+        group.description = _description;
+        group.location = _location;
+        group.groupListPointer = groupList.length;
+        group.isValid = true;
+        groupList.push(_groupName);
+    }
+
+    function getGroup(string memory _groupName) 
+        external 
+        view 
+        returns(string memory, string memory, string memory) 
+    {
+        require(groups[_groupName].isValid, "Invalid group");
+        return (
+            groups[_groupName].name, 
+            groups[_groupName].description, 
+            groups[_groupName].location
+        );
+    }
+
+    function updateGroup(
+        string memory _groupName, 
+        string memory _description, 
+        string memory _location
+    ) 
+        public 
+        onlyOwner 
+    {
+        require(groups[_groupName].isValid, "Invalid group");
+        emit LogUpdateGroup(msg.sender, _groupName);
+        Group storage group = groups[_groupName];
         group.description = _description;
         group.location = _location;
     }
 
-    function deleteGroup(string memory _name) public onlyOwner {
-        require(groups[_name].isValid, "Invalid group");
-        emit LogDeleteGroup(msg.sender, _name);
-        uint indexToDelete = groups[_name].listIndex;
-        string storage keyToMove = groupList[groupList.length - 1];
-        groupList[indexToDelete] = keyToMove;
-        groups[keyToMove].listIndex = indexToDelete;
-        groupList.pop();
-        delete groups[_name];
+    //TODO can only delete group if no meeting refers to it 
+    // https://medium.com/robhitchens/enforcing-referential-integrity-in-ethereum-smart-contracts-a9ab1427ff42
+    // function deleteGroup(string memory _name) public onlyOwner {
+    //     require(groups[_name].isValid, "Invalid group");
+    //     emit LogDeleteGroup(msg.sender, _name);
+    //     uint indexToDelete = groups[_name].groupListPointer;
+    //     string storage keyToMove = groupList[groupList.length - 1];
+    //     groupList[indexToDelete] = keyToMove;
+    //     groups[keyToMove].groupListPointer = indexToDelete;
+    //     groupList.pop();
+    //     delete groups[_name];
+    // }
+
+    // function getGroups() external view returns (Group[] memory){
+    //     Group[] memory groupArray = new Group[](groupList.length);
+    //     for (uint i = 0; i < groupList.length; i++) {
+    //         groupArray[i] = groups[groupList[i]];
+    //     }
+    //     return groupArray;
+    // }
+
+    function addMeeting(
+        string memory _groupName, 
+        string memory _title, 
+        string memory _description, 
+        string memory _location, 
+        uint _date
+    ) 
+        public 
+        onlyOwner 
+    {
+        require(groups[_groupName].isValid, "Invalid group");
+        Group storage group = groups[_groupName];
+        uint meetingId = meetingCount;
+        meetingCount++;
+        emit LogNewMeeting(msg.sender, _groupName, meetingId);
+        meetings[meetingId] = Meeting({
+            id: meetingId, 
+            title: _title, 
+            description: _description, 
+            location: _location, 
+            date: _date, 
+            groupKey: _groupName, 
+            meetingListPointer: meetingList.length, 
+            isValid: true
+        });
+        meetingList.push(meetingId);
+        group.meetingKeyPointers[meetingId] = group.meetingKeys.length;
+        group.meetingKeys.push(meetingId);
     }
 
-    function getGroups() external view returns (Group[] memory){
-        Group[] memory groupArray = new Group[](groupList.length);
-        for (uint i = 0; i < groupList.length; i++) {
-            groupArray[i] = groups[groupList[i]];
-        }
-        return groupArray;
+    function getMeeting(uint _meetingId) 
+        external 
+        view 
+        returns(uint, string memory, string memory, string memory, uint) 
+    {
+        require(meetings[_meetingId].isValid, "Invalid meeting");
+        Meeting storage meeting = meetings[_meetingId];
+        return (meeting.id, meeting.title, meeting.description, meeting.location, meeting.date);
     }
 
-    function addMeeting(string memory _title, string memory _description, string memory _location, uint _date) public onlyOwner {
-        emit LogNewMeeting(msg.sender, meetingCount, _title);
-        meetings[meetingCount] = Meeting({id: meetingCount, title: _title, description: _description, location: _location, date: _date});
-        meetingCount += 1;
-    }
-
-    function getMeeting(uint _id) external view returns(uint, string memory, string memory, string memory, uint) {
-        return (meetings[_id].id, meetings[_id].title, meetings[_id].description, meetings[_id].location, meetings[_id].date);
-    }
-
-    function updateMeeting(uint _id, string memory _title, string memory _description, string memory _location, uint _date) public onlyOwner {
-        emit LogUpdateMeeting(msg.sender, _id, _title);
-        Meeting storage meeting = meetings[_id];
+    function updateMeeting(
+        uint _meetingId, 
+        string memory _title, 
+        string memory _description, 
+        string memory _location, 
+        uint _date
+    ) 
+        public 
+        onlyOwner 
+    {
+        require(meetings[_meetingId].isValid, "Invalid meeting");
+        Meeting storage meeting = meetings[_meetingId];
+        emit LogUpdateMeeting(msg.sender, meeting.groupKey, _meetingId);
         meeting.title = _title;
         meeting.description = _description;
         meeting.location = _location;
         meeting.date = _date;
     }
 
-    function deleteMeeting(uint _id) public onlyOwner {
-        delete meetings[_id];
-    }
+//TODO
+    // function deleteMeeting(string memory _name) public onlyOwner {
+    //     require(groups[_name].isValid, "Invalid group");
+    //     emit LogDeleteGroup(msg.sender, _name);
+    //     uint indexToDelete = groups[_name].groupListPointer;
+    //     string storage keyToMove = groupList[groupList.length - 1];
+    //     groupList[indexToDelete] = keyToMove;
+    //     groups[keyToMove].groupListPointer = indexToDelete;
+    //     groupList.pop();
+    //     delete groups[_name];
+    // }
 
-    function getMeetings() external view returns (Meeting[] memory){
-        Meeting[] memory meetingArray = new Meeting[](meetingCount);
-        for (uint i = 0; i < meetingCount; i++) {
-            meetingArray[i] = meetings[i];
-        }
-        return meetingArray;
-    }
+//TODO
+    // function getMeetings() external view returns (Group[] memory){
+    //     Group[] memory groupArray = new Group[](groupList.length);
+    //     for (uint i = 0; i < groupList.length; i++) {
+    //         groupArray[i] = groups[groupList[i]];
+    //     }
+    //     return groupArray;
+    // }
 }
