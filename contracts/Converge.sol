@@ -49,18 +49,46 @@ contract Converge {
         owner = msg.sender;
     }
 
-    function getGroupMeetingCount(string memory _groupName) public view returns(uint) {
+    function getGroup(string memory _groupName) 
+        external 
+        view 
+        returns(string memory, string memory, string memory) 
+    {
+        require(groups[_groupName].isValid, "Invalid group");
+        return (
+            groups[_groupName].name, 
+            groups[_groupName].description, 
+            groups[_groupName].location
+        );
+    }
+
+    function getGroupMeetingCount(string memory _groupName) external view returns(uint) {
         require(groups[_groupName].isValid, "Invalid group");
         return groups[_groupName].meetingKeys.length;
     }
 
     function getGroupMeetingAtIndex(string memory _groupName, uint index) 
-        public 
+        external 
         view 
         returns(uint) 
     {
         require(groups[_groupName].isValid, "Invalid group");
         return groups[_groupName].meetingKeys[index];
+    }
+
+    function getMeeting(uint _meetingId) 
+        external 
+        view 
+        returns(uint, string memory, string memory, string memory, uint) 
+    {
+        require(meetings[_meetingId].isValid, "Invalid meeting");
+        return 
+            (meetings[_meetingId].id, 
+            meetings[_meetingId].title, 
+            meetings[_meetingId].description, 
+            meetings[_meetingId].location, 
+            meetings[_meetingId].date
+        );
     }
 
     function addGroup(string memory _groupName, string memory _description, string memory _location) 
@@ -78,19 +106,6 @@ contract Converge {
         groupList.push(_groupName);
     }
 
-    function getGroup(string memory _groupName) 
-        external 
-        view 
-        returns(string memory, string memory, string memory) 
-    {
-        require(groups[_groupName].isValid, "Invalid group");
-        return (
-            groups[_groupName].name, 
-            groups[_groupName].description, 
-            groups[_groupName].location
-        );
-    }
-
     function updateGroup(
         string memory _groupName, 
         string memory _description, 
@@ -101,31 +116,23 @@ contract Converge {
     {
         require(groups[_groupName].isValid, "Invalid group");
         emit LogUpdateGroup(msg.sender, _groupName);
-        Group storage group = groups[_groupName];
-        group.description = _description;
-        group.location = _location;
+
+        groups[_groupName].description = _description;
+        groups[_groupName].location = _location;
     }
 
-    //TODO can only delete group if no meeting refers to it 
-    // https://medium.com/robhitchens/enforcing-referential-integrity-in-ethereum-smart-contracts-a9ab1427ff42
-    // function deleteGroup(string memory _name) public onlyOwner {
-    //     require(groups[_name].isValid, "Invalid group");
-    //     emit LogDeleteGroup(msg.sender, _name);
-    //     uint indexToDelete = groups[_name].groupListPointer;
-    //     string storage keyToMove = groupList[groupList.length - 1];
-    //     groupList[indexToDelete] = keyToMove;
-    //     groups[keyToMove].groupListPointer = indexToDelete;
-    //     groupList.pop();
-    //     delete groups[_name];
-    // }
+    function deleteGroup(string memory _name) public onlyOwner {
+        require(groups[_name].isValid, "Invalid group");
+        require(groups[_name].meetingKeys.length == 0, "Can not contain meetings");
+        emit LogDeleteGroup(msg.sender, _name);
 
-    // function getGroups() external view returns (Group[] memory){
-    //     Group[] memory groupArray = new Group[](groupList.length);
-    //     for (uint i = 0; i < groupList.length; i++) {
-    //         groupArray[i] = groups[groupList[i]];
-    //     }
-    //     return groupArray;
-    // }
+        uint indexToDelete = groups[_name].groupListPointer;
+        string storage keyToMove = groupList[groupList.length - 1];
+        groupList[indexToDelete] = keyToMove;
+        groups[keyToMove].groupListPointer = indexToDelete;
+        groupList.pop();
+        delete groups[_name];
+    }
 
     function addMeeting(
         string memory _groupName, 
@@ -142,6 +149,7 @@ contract Converge {
         uint meetingId = meetingCount;
         meetingCount++;
         emit LogNewMeeting(msg.sender, _groupName, meetingId);
+
         meetings[meetingId] = Meeting({
             id: meetingId, 
             title: _title, 
@@ -153,18 +161,9 @@ contract Converge {
             isValid: true
         });
         meetingList.push(meetingId);
+
         group.meetingKeyPointers[meetingId] = group.meetingKeys.length;
         group.meetingKeys.push(meetingId);
-    }
-
-    function getMeeting(uint _meetingId) 
-        external 
-        view 
-        returns(uint, string memory, string memory, string memory, uint) 
-    {
-        require(meetings[_meetingId].isValid, "Invalid meeting");
-        Meeting storage meeting = meetings[_meetingId];
-        return (meeting.id, meeting.title, meeting.description, meeting.location, meeting.date);
     }
 
     function updateMeeting(
@@ -180,30 +179,30 @@ contract Converge {
         require(meetings[_meetingId].isValid, "Invalid meeting");
         Meeting storage meeting = meetings[_meetingId];
         emit LogUpdateMeeting(msg.sender, meeting.groupKey, _meetingId);
+
         meeting.title = _title;
         meeting.description = _description;
         meeting.location = _location;
         meeting.date = _date;
     }
 
-//TODO
-    // function deleteMeeting(string memory _name) public onlyOwner {
-    //     require(groups[_name].isValid, "Invalid group");
-    //     emit LogDeleteGroup(msg.sender, _name);
-    //     uint indexToDelete = groups[_name].groupListPointer;
-    //     string storage keyToMove = groupList[groupList.length - 1];
-    //     groupList[indexToDelete] = keyToMove;
-    //     groups[keyToMove].groupListPointer = indexToDelete;
-    //     groupList.pop();
-    //     delete groups[_name];
-    // }
+    function deleteMeeting(uint _meetingId) public onlyOwner {
+        require(meetings[_meetingId].isValid, "Invalid meeting");
+        string memory groupId = meetings[_meetingId].groupKey;
+        emit LogDeleteMeeting(msg.sender, groupId, _meetingId);
 
-//TODO
-    // function getMeetings() external view returns (Group[] memory){
-    //     Group[] memory groupArray = new Group[](groupList.length);
-    //     for (uint i = 0; i < groupList.length; i++) {
-    //         groupArray[i] = groups[groupList[i]];
-    //     }
-    //     return groupArray;
-    // }
+        uint indexToDelete = meetings[_meetingId].meetingListPointer;
+        uint keyToMove = meetingList[meetingList.length - 1];
+        meetingList[indexToDelete] = keyToMove;
+        meetings[keyToMove].meetingListPointer = indexToDelete;
+        meetingList.pop();
+        delete meetings[_meetingId];
+
+        indexToDelete = groups[groupId].meetingKeyPointers[_meetingId];
+        keyToMove = groups[groupId].meetingKeys[groups[groupId].meetingKeys.length - 1];
+        groups[groupId].meetingKeys[indexToDelete] = keyToMove;
+        groups[groupId].meetingKeyPointers[keyToMove] = indexToDelete;
+        groups[groupId].meetingKeys.pop();
+        delete groups[groupId].meetingKeyPointers[_meetingId];
+    }
 }

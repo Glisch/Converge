@@ -123,32 +123,42 @@ contract("Converge", accounts => {
         );
     });
 
-    // it("should delete existing valid group", async () => {
-    //     const storedData = await converge.getGroup(defaultGroupName, {from: ownerAccount});
+    it("should delete valid group", async () => {
+        const name = "Test Name";
+        const description = "Test Description";
+        const location = "Test Location";
     
-    //     assert.equal(storedData[0], defaultGroupName, "Incorrect name");
-    //     assert.equal(storedData[1], defaultGroupDescription, "Incorrect Description");
-    //     assert.equal(storedData[2], defaultGroupLocation, "Incorrect location");
+        await converge.addGroup(name, description, location, {from: ownerAccount});
+    
+        const storedData = await converge.getGroup(name, {from: ownerAccount});
+    
+        assert.equal(storedData[0], name, "Incorrect name");
 
-    //     await converge.deleteGroup(defaultGroupName, { from: ownerAccount });
+        await converge.deleteGroup(name, { from: ownerAccount });
 
-    //     await truffleAssert.reverts(
-    //         converge.getGroup(defaultGroupName, {from: ownerAccount}), "Invalid group"
-    //     );
-    // });
+        await truffleAssert.reverts(
+            converge.getGroup(name, {from: ownerAccount}), "Invalid group"
+        );
+    });
 
-    // it("should revert delete non-existing group", async () => {
-    //     const fakeName = "Fake Name";
-    //     await truffleAssert.reverts(
-    //         converge.deleteGroup(fakeName, { from: ownerAccount }), "Invalid group"
-    //     );
-    // });
+    it("should revert delete group with meetings", async () => {
+        await truffleAssert.reverts(
+            converge.deleteGroup(defaultGroupName, { from: ownerAccount }), "Can not contain meetings"
+        );
+    });
 
-    // it("should revert delete group from unauthorized account", async () => {
-    //     await truffleAssert.reverts(
-    //         converge.deleteGroup(defaultGroupName, { from: unauthorizedAccount }), "Unauthorized"
-    //     );
-    // });
+    it("should revert delete non-existing group", async () => {
+        const fakeName = "Fake Name";
+        await truffleAssert.reverts(
+            converge.deleteGroup(fakeName, { from: ownerAccount }), "Invalid group"
+        );
+    });
+
+    it("should revert delete group from unauthorized account", async () => {
+        await truffleAssert.reverts(
+            converge.deleteGroup(defaultGroupName, { from: unauthorizedAccount }), "Unauthorized"
+        );
+    });
 
     // it("should return all groups", async () => {
     //     const expectedName = "Test Name";
@@ -271,18 +281,52 @@ contract("Converge", accounts => {
         );
     });
 
-    // it("should return all meetings", async () => {
-    //     const expectedTitle = "Test Title";
-    //     const expectedTopic = "Test Topic";
-    //     const expectedLocation = "Test Location";
-    //     const expectedDate = parseInt((new Date()).getTime() / 1000);
+    it("should delete existing valid meeting", async () => {
+        const meetingId = await converge.getGroupMeetingAtIndex(defaultGroupName, 0);
+        const storedMeeting = await converge.getMeeting(meetingId, {from: ownerAccount});
+    
+        assert.equal(storedMeeting[0].toString(), meetingId.toString(), "Incorrect id");
+        assert.equal(storedMeeting[1], defaultMeetingTitle, "Incorrect Title");
 
-    //     await converge.addMeeting(expectedTitle + 1, expectedTopic, expectedLocation, expectedDate, { from: ownerAccount });
-    //     await converge.addMeeting(expectedTitle + 2, expectedTopic, expectedLocation, expectedDate, { from: ownerAccount });
-    //     await converge.addMeeting(expectedTitle + 3, expectedTopic, expectedLocation, expectedDate, { from: ownerAccount });
+        await converge.deleteMeeting(meetingId, { from: ownerAccount });
 
-    //     const storedData = await converge.getMeetings({from: ownerAccount});
+        await truffleAssert.reverts(
+            converge.getMeeting(meetingId, {from: ownerAccount}), "Invalid meeting"
+        );
+    });
 
-    //     assert.equal(storedData.length, 3, "Incorrect number of meetings");
-    // });
+    it("should revert delete non-existing meeting", async () => {
+        const fakeMeeingId = 99;
+        await truffleAssert.reverts(
+            converge.deleteMeeting(fakeMeeingId, { from: ownerAccount }), "Invalid meeting"
+        );
+    });
+
+    it("should revert delete meeting from unauthorized account", async () => {
+        const meetingId = await converge.getGroupMeetingAtIndex(defaultGroupName, 0);
+        await truffleAssert.reverts(
+            converge.deleteMeeting(meetingId, { from: unauthorizedAccount }), "Unauthorized"
+        );
+    });
+
+    it("should return all meetings", async () => {
+        const meetingId = await converge.meetingCount();
+        const expectedTitle = "Test Title";
+        const expectedDescription = "Test Description";
+        const expectedLocation = "Test Location";
+        const expectedDate = parseInt((new Date()).getTime() / 1000);
+
+        await converge.addMeeting(
+            defaultGroupName, 
+            expectedTitle, 
+            expectedDescription, 
+            expectedLocation, 
+            expectedDate, 
+            {from: ownerAccount}
+        );
+
+        const storedData = await converge.getMeetings({from: ownerAccount});
+
+        assert.equal(storedData.length.toString(), "2", "Incorrect number of meetings");
+    });
 });
