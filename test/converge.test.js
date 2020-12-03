@@ -160,20 +160,6 @@ contract("Converge", accounts => {
         );
     });
 
-    // it("should return all groups", async () => {
-    //     const expectedName = "Test Name";
-    //     const expectedDescription = "Test Description";
-    //     const expectedLocation = "Test Location";
-
-    //     await converge.addGroup(expectedName + 1, expectedDescription, expectedLocation, { from: ownerAccount });
-    //     await converge.addGroup(expectedName + 2, expectedDescription, expectedLocation, { from: ownerAccount });
-
-    //     const storedData = await converge.getGroups({from: ownerAccount});
-
-    //     assert.equal(storedData.length, 3, "Incorrect number of groups");
-    // });
-
-
     it("should add new meeting", async () => {
         const meetingId = await converge.meetingCount();
         const expectedTitle = "Test Title";
@@ -307,26 +293,5 @@ contract("Converge", accounts => {
         await truffleAssert.reverts(
             converge.deleteMeeting(meetingId, { from: unauthorizedAccount }), "Unauthorized"
         );
-    });
-
-    it("should return all meetings", async () => {
-        const meetingId = await converge.meetingCount();
-        const expectedTitle = "Test Title";
-        const expectedDescription = "Test Description";
-        const expectedLocation = "Test Location";
-        const expectedDate = parseInt((new Date()).getTime() / 1000);
-
-        await converge.addMeeting(
-            defaultGroupName, 
-            expectedTitle, 
-            expectedDescription, 
-            expectedLocation, 
-            expectedDate, 
-            {from: ownerAccount}
-        );
-
-        const storedData = await converge.getMeetings({from: ownerAccount});
-
-        assert.equal(storedData.length.toString(), "2", "Incorrect number of meetings");
     });
 });

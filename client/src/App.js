@@ -1,6 +1,7 @@
 import React, { Component } from "react";
 import ConvergeContract from "./contracts/Converge.json";
 import getWeb3 from "./getWeb3";
+import Header from "./Header";
 
 import "./App.css";
 
@@ -38,19 +39,21 @@ class App extends Component {
   runExample = async () => {
     const { accounts, contract } = this.state;
 
+    const groupName = "Test Name";
+
     // Stores a test/default meeting
-    await contract.methods.addGroup("Test Name", "Test Description", "Test Location").send({ from: accounts[0] });
+    // await contract.methods.addGroup(groupName, "Test Description", "Test Location").send({ from: accounts[0] });
     // Get the value from the contract to prove it worked.
-    const groupResponse = await contract.methods.getGroups  ().call();
+    const groupResponse = await contract.methods.getGroupList().call();
     // Update state with the result.
     this.setState({ groups: groupResponse });
 
     // Stores a test/default meeting
-    await contract.methods.addMeeting("Test Title", "Test Topic", "Test Location", parseInt((new Date()).getTime() / 1000)).send({ from: accounts[0] });
+    // await contract.methods.addMeeting(groupName, "Test Title", "Test Topic", "Test Location", parseInt((new Date()).getTime() / 1000)).send({ from: accounts[0] });
     // Get the value from the contract to prove it worked.
-    const meetingResponse = await contract.methods.getMeetings().call();
+    const meetingResponse = await contract.methods.getMeeting(0).call();
     // Update state with the result.
-    this.setState({ meetings: meetingResponse });
+    this.setState({ meetings: meetingResponse[1] });
   };
 
   render() {
@@ -59,8 +62,7 @@ class App extends Component {
     }
     return (
       <div className="App">
-        <h1>Good to Go!</h1>
-        <p>Your Truffle Box is installed and ready.</p>
+        <Header />
         <h2>Smart Contract Example</h2>
         <div>The stored groups: {this.state.groups}</div>
         <div>The stored events: {this.state.meetings}</div>

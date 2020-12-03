@@ -49,6 +49,10 @@ contract Converge {
         owner = msg.sender;
     }
 
+    function getGroupList() external view returns(string[] memory) {
+        return groupList;
+    }
+
     function getGroup(string memory _groupName) 
         external 
         view 
@@ -95,7 +99,7 @@ contract Converge {
         public 
         onlyOwner 
     {
-        require(!groups[_groupName].isValid, "Group exists");
+        require(!groups[_groupName].isValid, "Group already exists");
         emit LogNewGroup(msg.sender, _groupName);
         Group storage group = groups[_groupName];
         group.name = _groupName;
